@@ -68,6 +68,10 @@ restorationHandler:
                     if (dynamicLink && dynamicLink.url && error == nil) {
                         NSURL* url = dynamicLink.url;
                         [self sendJSEvent:self name:LINKS_LINK_RECEIVED body:url.absoluteString];
+                    } else if (dynamicLink && error == nil) {
+                        // Handle the case where the provided dynamicLink.url is nil.
+                        DLog(@"DynamicLink.url is nil, falling back to the webpageURL: %@", userActivity.webpageURL);
+                        [self sendJSEvent:self name:LINKS_LINK_RECEIVED body:userActivity.webpageURL.absoluteString]; 
                     } else if (error != nil && [NSPOSIXErrorDomain isEqualToString:error.domain] && error.code == 53) {
                         DLog(@"Failed to handle universal link on first attempt, retrying: %@", userActivity.webpageURL);
                         
@@ -156,7 +160,11 @@ RCT_EXPORT_METHOD(getInitialLink:(RCTPromiseResolveBlock)resolve rejecter:(RCTPr
     if (self.bridge.launchOptions[UIApplicationLaunchOptionsURLKey]) {
         NSURL* url = (NSURL*)self.bridge.launchOptions[UIApplicationLaunchOptionsURLKey];
         FIRDynamicLink *dynamicLink = [[FIRDynamicLinks dynamicLinks] dynamicLinkFromCustomSchemeURL:url];
-        resolve(dynamicLink ? dynamicLink.url.absoluteString : initialLink);
+        // resolve(dynamicLink ? dynamicLink.url.absoluteString : initialLink);
+        NSString* urlString = (dynamicLink && dynamicLink.url)
+            ? dynamicLink.url.absoluteString
+            : initialLink;
+        resolve(urlString);
     } else if (self.bridge.launchOptions[UIApplicationLaunchOptionsUserActivityDictionaryKey]
                && [self.bridge.launchOptions[UIApplicationLaunchOptionsUserActivityDictionaryKey][UIApplicationLaunchOptionsUserActivityTypeKey] isEqualToString:NSUserActivityTypeBrowsingWeb]) {
         NSDictionary *dictionary = self.bridge.launchOptions[UIApplicationLaunchOptionsUserActivityDictionaryKey];
@@ -167,8 +175,9 @@ RCT_EXPORT_METHOD(getInitialLink:(RCTPromiseResolveBlock)resolve rejecter:(RCTPr
                                                          DLog(@"Failed to handle universal link: %@", [error localizedDescription]);
                                                          reject(@"links/failure", @"Failed to handle universal link", error);
                                                      } else {
-                                                         NSString* urlString = dynamicLink ? dynamicLink.url.absoluteString : userActivity.webpageURL.absoluteString;
-                                                         DLog(@"initial link is: %@", urlString);
+                                                         // NSString* urlString = dynamicLink ? dynamicLink.url.absoluteString : userActivity.webpageURL.absoluteString;
+                                                         NSString* urlString = dynamicLink.url ? dynamicLink.url.absoluteString : userActivity.webpageURL.absoluteString;
+                                                         // DLog(@"initial link is: %@", urlString);
                                                          resolve(urlString);
                                                      }
                                                  }];
